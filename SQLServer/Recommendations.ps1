@@ -3,11 +3,14 @@ param(
     [Parameter(Mandatory=$true)]
     [string]$InputFile,
     
-    [Parameter(Mandatory=$true)]
+    [Parameter(Mandatory=$false)]
     [string]$SQLUsername,
     
-    [Parameter(Mandatory=$true)]
-    [string]$SQLPassword
+    [Parameter(Mandatory=$false)]
+    [string]$SQLPassword,
+
+    [Parameter(Mandatory=$false)]
+    [switch]$WindowsAuth = $false
 )
 
 # Function to test SQL Connection
@@ -15,12 +18,16 @@ function Test-SQLConnection {
     param (
         [string]$ServerName,
         [string]$Username,
-        [string]$Password
+        [string]$Password,
+        [bool]$UseWindowsAuth
     )
     
     try {
-        # Modified connection string to include port 1433 for RDS
-        $connectionString = "Server=$ServerName,1433;User ID=$Username;Password=$Password;Connect Timeout=5;"
+        if ($UseWindowsAuth) {
+            $connectionString = "Server=$ServerName;Integrated Security=SSPI;Connect Timeout=5;"
+        } else {
+            $connectionString = "Server=$ServerName;User ID=$Username;Password=$Password;Connect Timeout=5;"
+        }
         $connection = New-Object System.Data.SqlClient.SqlConnection($connectionString)
         $connection.Open()
         $connection.Close()
