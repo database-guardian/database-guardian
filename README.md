@@ -1,11 +1,59 @@
 # database-guardian
 
-You can run this script by following below steps
+## SQLServer Module
 
-1. Download the file SQLServer_Recommendations.ps1 from SQLServer Folder
-2. Copy it to desired folder on a Test Server which can access all the other SQLServers (Open the required SQLServer ports if there is a firewall in-between)
-3. Create a text file servers.txt in the same folder
-4. Add the required server details to servers.txt
-5. Run the script using PowerShell as an administrator
-   
-Eg: .\SQLServer_Recommendations.ps1 -InputFile "servers.txt" -SQLUsername "user" -SQLPassword "password"
+This tool provides automated analysis and recommendations for SQL Server configurations, helping maintain optimal performance and security.
+
+### Prerequisites
+- PowerShell 5.1 or higher
+- SQL Server authentication credentials
+- Network access to target SQL Servers
+- Required ports open (default: 1433)
+
+### Usage Steps
+
+1. Download Installation Files
+   - Obtain `SQLServer_Recommendations.ps1` from `/SQLServer` folder
+   - Place in desired location on your management server
+
+2. Configure Server List
+   - Create `servers.txt` in the same directory as the script
+   - Add target server names (one per line)
+
+Example servers.txt:
+```
+sqlserver01.domain.com
+sqlserver02.domain.com
+```
+3. Network Requirements
+   - Ensure management server can reach all SQL Server instances
+   - Verify SQL Server port is open (1433 is default, require 1434 for 
+   - Check firewall rules if necessary
+
+4. SQLServer login requirements
+  
+   - View Server State permission
+   - View Any Definition permission
+
+Example SQL Commands to Grant Permissions for a SQL login:
+```
+-- Grant required permissions
+GRANT VIEW SERVER STATE TO [monitoring_user]
+GRANT VIEW ANY DEFINITION TO [monitoring_user]
+```
+5. Execute Analysis
+   - Open PowerShell as Administrator
+   - Navigate to script directory
+   - Run the following command:
+For SQL login
+
+```
+.\SQLServer_Recommendations.ps1 -InputFile "servers.txt" -SQLUsername "readonly_user" -SQLPassword "secure_password"
+```
+For Windows login
+
+```
+.\SQLServer_Recommendations.ps1 -InputFile "servers.txt" -WindowsAuth
+```
+
+Need help? Contact [email](kedaryarlapati@gmail.com)
