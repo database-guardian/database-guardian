@@ -2,7 +2,7 @@
 
 ## SQLServer Module
 
-This tool provides automated analysis and recommendations for SQL Server configurations, helping maintain optimal performance and security.
+This tool provides automated analysis and recommendations for SQL Server configurations of **multipleservers** and providing the output in a user-friendly way, helping maintain optimal performance and security.
 
 ### Prerequisites
 - PowerShell 5.1 or higher
