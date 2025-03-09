@@ -10,34 +10,8 @@ param(
     [string]$SQLPassword,
 
     [Parameter(Mandatory=$false)]
-    [switch]$WindowsAuth = $false
+    [switch]$WindowsAuth
 )
-
-# Function to test SQL Connection
-function Test-SQLConnection {
-    param (
-        [string]$ServerName,
-        [string]$Username,
-        [string]$Password,
-        [bool]$UseWindowsAuth
-    )
-    
-    try {
-        if ($UseWindowsAuth) {
-            $connectionString = "Server=$ServerName;Integrated Security=SSPI;Connect Timeout=5;"
-        } else {
-            $connectionString = "Server=$ServerName;User ID=$Username;Password=$Password;Connect Timeout=5;"
-        }
-        $connection = New-Object System.Data.SqlClient.SqlConnection($connectionString)
-        $connection.Open()
-        $connection.Close()
-        return $true
-    }
-    catch {
-        Write-Host "Cannot connect to SQL Server $ServerName. Error: $_" -ForegroundColor Red
-        return $false
-    }
-}
 
 # Function to calculate recommended MAXDOP
 function Get-RecommendedMaxDop {
@@ -46,7 +20,6 @@ function Get-RecommendedMaxDop {
         [int]$NumaNodes
     )
     
-    # Single NUMA node scenarios
     if ($NumaNodes -eq 1) {
         if ($CPUCount -le 8) {
             return $CPUCount
@@ -55,7 +28,6 @@ function Get-RecommendedMaxDop {
             return 8
         }
     }
-    # Multiple NUMA node scenarios
     else {
         $LogicalProcessorsPerNuma = [math]::Ceiling($CPUCount / $NumaNodes)
         if ($LogicalProcessorsPerNuma -le 16) {
@@ -68,98 +40,87 @@ function Get-RecommendedMaxDop {
     }
 }
 
-# Function to get MaxDOP Information
-function Get-MAXDOPInfo {
+# Function to analyze SQL Server
+
+function Get-SQLServerAnalysis {
     param (
         [string]$ServerName,
         [string]$Username,
-        [string]$Password
+        [string]$Password,
+        [bool]$UseWindowsAuth,
+        [System.Text.StringBuilder]$output
     )
     
+    $connection = $null
+    
     try {
-        # Modified connection string to include port 1433 for RDS
-        $connectionString = "Server=$ServerName,1433;User ID=$Username;Password=$Password;"
+        # Create single connection for this server
+        if ($UseWindowsAuth) {
+            $connectionString = "Server=$ServerName;Integrated Security=SSPI;"
+        } else {
+            $connectionString = "Server=$ServerName;User ID=$Username;Password=$Password;"
+        }
+        
         $connection = New-Object System.Data.SqlClient.SqlConnection($connectionString)
         $connection.Open()
+        Write-Host "Successfully connected to $ServerName" -ForegroundColor Green
 
-        # Query to get CPU and NUMA information
-        $query = @"
+        # Create single command object to be reused
+        $command = New-Object System.Data.SqlClient.SqlCommand("", $connection)
+
+        # MAXDOP Information using existing connection
+        Write-Host "`nGathering Server Configuration Information..." -ForegroundColor Cyan
+        $command.CommandText = @"
         SELECT
             cpu_count,
             hyperthread_ratio,
-            softnuma_configuration,
             softnuma_configuration_desc,
             socket_count,
             numa_node_count,
             (SELECT value_in_use FROM sys.configurations WHERE name = 'max degree of parallelism') as CurrentMAXDOP
-        FROM 
-            sys.dm_os_sys_info
+        FROM sys.dm_os_sys_info
 "@
-
-        $command = New-Object System.Data.SqlClient.SqlCommand($query, $connection)
         $reader = $command.ExecuteReader()
         
         if ($reader.Read()) {
+            # Process MAXDOP info
             $cpuCount = $reader['cpu_count']
             $numaNodes = $reader['numa_node_count']
             $currentMaxDOP = $reader['CurrentMAXDOP']
             $recommendedMaxDOP = Get-RecommendedMaxDop -CPUCount $cpuCount -NumaNodes $numaNodes
 
-            Write-Host "`nServer Configuration for $ServerName" -ForegroundColor Green
-            Write-Host "----------------------------------------"
-            Write-Host "CPU Count: $cpuCount"
-            Write-Host "Hyperthread Ratio: $($reader['hyperthread_ratio'])"
-            Write-Host "Socket Count: $($reader['socket_count'])"
-            Write-Host "NUMA Node Count: $numaNodes"
-            Write-Host "Soft-NUMA Configuration: $($reader['softnuma_configuration_desc'])"
-            Write-Host "Current MAXDOP Setting: $currentMaxDOP"
-            Write-Host "----------------------------------------"
-            Write-Host "RECOMMENDATION:" -ForegroundColor Yellow
-            Write-Host "Recommended MAXDOP Setting: $recommendedMaxDOP" -ForegroundColor Yellow
-            
-            if ($currentMaxDOP -ne $recommendedMaxDOP) {
-                                Write-Host "`nRecommendation:" -ForegroundColor Red
-                Write-Host "Modify the maxdop parameter in the parametergroup attached to this RDS Instance." -ForegroundColor Cyan
-                Write-Host "Before modifying verify if there is a wait type of CXPACKET that is affecting your load." -ForegroundColor Yellow
-                Write-Host "`nTo check CXPACKET waits, run this query:" -ForegroundColor Blue
-                Write-Host @"
-SELECT wait_type, wait_time_ms, wait_time_ms/1000.0 as wait_time_seconds
-FROM sys.dm_os_wait_stats 
-WHERE wait_type = 'CXPACKET'
-ORDER BY wait_time_ms DESC;
-"@
-            }
-            else {
-                Write-Host "`nCurrent MAXDOP setting matches the recommendation." -ForegroundColor Green
-            }
+            # Add MAXDOP info to output
+            $maxDopLine = "{0},{1},{2},{3},{4},{5},{6},{7},{8}" -f `
+                $ServerName,
+                $cpuCount,
+                $reader['hyperthread_ratio'],
+                $reader['socket_count'],
+                $numaNodes,
+                $reader['softnuma_configuration_desc'],
+                $currentMaxDOP,
+                $recommendedMaxDOP,
+                $(if ($currentMaxDOP -ne $recommendedMaxDOP) { 
+                    "RECOMMENDATION: Modify MAXDOP to $recommendedMaxDOP" 
+                } else { 
+                    "No change needed" 
+                })
+
+            $output.AppendLine($maxDopLine) | Out-Null
         }
-        
         $reader.Close()
-        $connection.Close()
-    }
-    catch {
-        Write-Host "Error getting SQL Server information for $ServerName : $_" -ForegroundColor Red
-    }
-}
 
+        # Add spacing between sections
+        $output.AppendLine("") | Out-Null
+        $output.AppendLine("") | Out-Null
+        $output.AppendLine("Database File Information") | Out-Null
+        $output.AppendLine("Server Name,Database Name,File Name,File Type,Size (MB),Growth Setting,Max Size,Recommendation") | Out-Null
 
-function Get-DatabaseFileInfo {
-    param (
-        [string]$ServerName,
-        [string]$Username,
-        [string]$Password
-    )
-    
-    try {
-        $connectionString = "Server=$ServerName,1433;User ID=$Username;Password=$Password;"
-        $connection = New-Object System.Data.SqlClient.SqlConnection($connectionString)
-        $connection.Open()
-
-        $query = @"
+        # Database File Information using same connection and command object
+        Write-Host "Gathering Database File Information..." -ForegroundColor Cyan
+        $command.CommandText = @"
         SELECT 
             DB_NAME(database_id) as DatabaseName,
             name as LogicalFileName,
-            physical_name as PhysicalFileName,
             type_desc as FileType,
             size/128.0 as CurrentSizeMB,
             CASE 
@@ -172,86 +133,56 @@ function Get-DatabaseFileInfo {
                 WHEN max_size = 0 THEN 'No Growth'
                 ELSE CAST(CAST(max_size * 8.0 / 1024 AS DECIMAL(18,2)) AS VARCHAR(20)) + ' MB'
             END as MaxSize,
-            is_percent_growth as IsPercentGrowth
+            is_percent_growth as IsPercentGrowth,
+            growth
         FROM sys.master_files
         ORDER BY database_id, file_id;
 "@
-
-        $command = New-Object System.Data.SqlClient.SqlCommand($query, $connection)
         $reader = $command.ExecuteReader()
         
-        Write-Host "`nDatabase File Information for $ServerName" -ForegroundColor Cyan
-        Write-Host "==========================================="
-        
-        $currentDB = ""
-        
-        $format = "{0,-20} {1,-10} {2,-12} {3,-15} {4,-15}"
-        
         while ($reader.Read()) {
-            $dbName = $reader['DatabaseName']
-            
-            if ($dbName -ne $currentDB) {
-                Write-Host "`nDatabase: $dbName" -ForegroundColor Green
-                Write-Host "----------------------------------------"
-                Write-Host ($format -f "File Name", "Type", "Size(MB)", "Growth", "Max Size")
-                Write-Host "----------------------------------------"
-                $currentDB = $dbName
+            # Process database file info using same connection
+            $recommendation = @()
+            if ($reader['IsPercentGrowth']) {
+                $recommendation += "RECOMMENDATION: Change from percentage growth to fixed size"
             }
-            
-            Write-Host ($format -f 
+            if ($reader['growth'] -eq 0) {
+                $recommendation += "RECOMMENDATION: Configure growth settings - current setting allows no growth"
+            }
+
+            $fileLine = "{0},{1},{2},{3},{4},{5},{6},{7}" -f `
+                $ServerName,
+                $reader['DatabaseName'],
                 $reader['LogicalFileName'],
                 $reader['FileType'],
                 [math]::Round($reader['CurrentSizeMB'], 2),
                 $reader['Growth'],
-                $reader['MaxSize'])
-            
-            if ($reader['IsPercentGrowth']) {
-                Write-Host "  Recommendation: Percentage growth setting detected!" -ForegroundColor Red
-            }
-            if ($reader['Growth'] -eq '0 MB') {
-                Write-Host "  Recommendation: No growth allowed!" -ForegroundColor Red
-            }
-        }
-        
-        # Check for databases with different file sizes
-        $reader.Close()
-        $query2 = @"
-        SELECT 
-            DB_NAME(database_id) as DatabaseName,
-            COUNT(DISTINCT size) as DistinctFileSizes
-        FROM sys.master_files
-        WHERE type_desc = 'ROWS'
-        GROUP BY database_id
-        HAVING COUNT(DISTINCT size) > 1;
-"@
+                $reader['MaxSize'],
+                $(if ($recommendation.Count -gt 0) { 
+                    $recommendation -join "; " 
+                } else { 
+                    "Settings OK" 
+                })
 
-        $command.CommandText = $query2
-        $reader = $command.ExecuteReader()
-        
-        Write-Host "`nRecommendation: Non-uniform file sizes detected" -ForegroundColor Red
-        Write-Host "----------------------------------------"
-        $hasUnevenFiles = $false
-        
-        while ($reader.Read()) {
-            Write-Host "$($reader['DatabaseName'])" -ForegroundColor Yellow
-            $hasUnevenFiles = $true
+            $output.AppendLine($fileLine) | Out-Null
         }
-        
-        if (-not $hasUnevenFiles) {
-            Write-Host "No databases found with uneven file sizes." -ForegroundColor Green
-        }
-        
         $reader.Close()
-        $connection.Close()
     }
     catch {
-        Write-Host "Error getting database file information for $ServerName : $_" -ForegroundColor Red
+        Write-Host "Error analyzing SQL Server $ServerName : $_" -ForegroundColor Red
+    }
+    finally {
+        # Always close the connection in finally block
+        if ($connection -and $connection.State -eq 'Open') {
+            $connection.Close()
+            $connection.Dispose()
+        }
     }
 }
 
-    
-# Main execution
 try {
+    Write-Host "Analysis started at $(Get-Date)" -ForegroundColor Cyan
+
     # Load SQL Client Assembly
     Add-Type -AssemblyName System.Data
 
@@ -260,19 +191,151 @@ try {
         throw "Input file not found: $InputFile"
     }
     
+    # Create timestamp for the output file
+    $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+    $csvPath = "SQLServerAnalysis_$timestamp.csv"
+    
+    # Create StringBuilder for building CSV content
+    $output = New-Object System.Text.StringBuilder
+    
+    # Add MAXDOP section header
+    $output.AppendLine("MAXDOP Configuration") | Out-Null
+    $output.AppendLine("Server Name,CPU Count,Hyperthread Ratio,Socket Count,NUMA Node Count,Soft-NUMA Configuration,Current MAXDOP,Recommended MAXDOP,MAXDOP Recommendation") | Out-Null
+
     # Read servers from file
     $servers = Get-Content $InputFile | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
     $totalServers = $servers.Count
     
     Write-Host "Found $totalServers servers in input file" -ForegroundColor Yellow
     
+    # Create arrays to store results
+    $maxDopResults = New-Object System.Collections.ArrayList
+    $dbFileResults = New-Object System.Collections.ArrayList
+    
     # Process each server
     foreach ($server in $servers) {
-        if (Test-SQLConnection -ServerName $server -Username $SQLUsername -Password $SQLPassword) {
-            Get-MAXDOPInfo -ServerName $server -Username $SQLUsername -Password $SQLPassword
-	    Get-DatabaseFileInfo -ServerName $server -Username $SQLUsername -Password $SQLPassword
+        Write-Host "`n============================================="
+        Write-Host "Processing Server: $server"
+        Write-Host "============================================="
+        
+        try {
+            $connectionString = if ($WindowsAuth) {
+                "Server=$server;Integrated Security=SSPI;"
+            } else {
+                "Server=$server;User ID=$SQLUsername;Password=$SQLPassword;"
+            }
+            
+            $connection = New-Object System.Data.SqlClient.SqlConnection($connectionString)
+            $connection.Open()
+            Write-Host "Successfully connected to $server" -ForegroundColor Green
+
+            # Get MAXDOP Information
+            Write-Host "`nGathering Server Configuration Information..." -ForegroundColor Cyan
+            $maxDopQuery = @"
+            SELECT
+                cpu_count,
+                hyperthread_ratio,
+                softnuma_configuration_desc,
+                socket_count,
+                numa_node_count,
+                (SELECT value_in_use FROM sys.configurations WHERE name = 'max degree of parallelism') as CurrentMAXDOP
+            FROM sys.dm_os_sys_info
+"@
+            $command = New-Object System.Data.SqlClient.SqlCommand($maxDopQuery, $connection)
+            $reader = $command.ExecuteReader()
+
+            if ($reader.Read()) {
+                $cpuCount = $reader['cpu_count']
+                $numaNodes = $reader['numa_node_count']
+                $currentMaxDOP = $reader['CurrentMAXDOP']
+                $recommendedMaxDOP = Get-RecommendedMaxDop -CPUCount $cpuCount -NumaNodes $numaNodes
+
+                # Add MAXDOP info to CSV
+                $maxDopLine = "{0},{1},{2},{3},{4},{5},{6},{7},{8}" -f `
+                    $server,
+                    $cpuCount,
+                    $reader['hyperthread_ratio'],
+                    $reader['socket_count'],
+                    $numaNodes,
+                    $reader['softnuma_configuration_desc'],
+                    $currentMaxDOP,
+                    $recommendedMaxDOP,
+                    $(if ($currentMaxDOP -ne $recommendedMaxDOP) { "RECOMMENDATION: Modify MAXDOP to $recommendedMaxDOP" } else { "No change needed" })
+
+                $output.AppendLine($maxDopLine) | Out-Null
+            }
+            $reader.Close()
+
+            # Add spacing between sections
+            $output.AppendLine("") | Out-Null
+            $output.AppendLine("") | Out-Null
+
+            # Add Database Files section header
+            $output.AppendLine("Database File Information") | Out-Null
+            $output.AppendLine("Server Name,Database Name,File Name,File Type,Size (MB),Growth Setting,Max Size,Recommendation") | Out-Null
+
+            # Get Database File Information
+            Write-Host "Gathering Database File Information..." -ForegroundColor Cyan
+            $fileQuery = @"
+            SELECT 
+                DB_NAME(database_id) as DatabaseName,
+                name as LogicalFileName,
+                type_desc as FileType,
+                size/128.0 as CurrentSizeMB,
+                CASE 
+                    WHEN is_percent_growth = 1 THEN CAST(growth AS VARCHAR(10)) + '%'
+                    ELSE CAST(growth/128.0 AS VARCHAR(10)) + ' MB'
+                END as Growth,
+                CASE
+                    WHEN max_size = -1 THEN 'Unlimited'
+                    WHEN max_size = 268435456 AND type_desc = 'LOG' THEN '2 TB'
+                    WHEN max_size = 0 THEN 'No Growth'
+                    ELSE CAST(CAST(max_size * 8.0 / 1024 AS DECIMAL(18,2)) AS VARCHAR(20)) + ' MB'
+                END as MaxSize,
+                is_percent_growth as IsPercentGrowth,
+                growth
+            FROM sys.master_files
+            ORDER BY database_id, file_id;
+"@
+            $command.CommandText = $fileQuery
+            $reader = $command.ExecuteReader()
+
+            while ($reader.Read()) {
+                $recommendation = @()
+                if ($reader['IsPercentGrowth']) {
+                    $recommendation += "RECOMMENDATION: Change from percentage growth to fixed size"
+                }
+                if ($reader['growth'] -eq 0) {
+                    $recommendation += "RECOMMENDATION: Configure growth settings - current setting allows no growth"
+                }
+
+                # Add database file info to CSV
+                $fileLine = "{0},{1},{2},{3},{4},{5},{6},{7}" -f `
+                    $server,
+                    $reader['DatabaseName'],
+                    $reader['LogicalFileName'],
+                    $reader['FileType'],
+                    [math]::Round($reader['CurrentSizeMB'], 2),
+                    $reader['Growth'],
+                    $reader['MaxSize'],
+                    $(if ($recommendation.Count -gt 0) { $recommendation -join "; " } else { "Settings OK" })
+
+                $output.AppendLine($fileLine) | Out-Null
+            }
+            $reader.Close()
+            $connection.Close()
+
+        }
+        catch {
+            Write-Host "Error processing server $server : $_" -ForegroundColor Red
         }
     }
+    
+    # Write all content to file
+    $output.ToString() | Out-File $csvPath -Encoding UTF8
+    
+    Write-Host "`nAnalysis completed at $(Get-Date)" -ForegroundColor Cyan
+    Write-Host "Results have been saved to: $csvPath" -ForegroundColor Green
 }
 catch {
     Write-Host "Error: $_" -ForegroundColor Red
