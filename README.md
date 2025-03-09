@@ -53,7 +53,7 @@ For SQL login
 For Windows login
 
 ```
-.\SQLServer_Recommendations.ps1 -InputFile "servers.txt" -WindowsAuth
+.\SQLServer_Recommendations.ps1 -InputFile "servers.txt" -WindowsAuth true
 ```
 
 Need help? Contact [email](kedaryarlapati@gmail.com)
