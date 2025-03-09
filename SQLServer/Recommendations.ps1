@@ -269,11 +269,45 @@ try {
             # Add spacing between sections
             $output.AppendLine("") | Out-Null
             $output.AppendLine("") | Out-Null
+        # Memory Configuration Information
+        Write-Host "Gathering Memory Configuration Information..." -ForegroundColor Cyan
+        $command.CommandText = @"
+        SELECT
+            sql_memory_model_desc,
+            physical_memory_kb/1024.0/1024.0 as physical_memory_gb,
+            committed_target_kb/1024.0/1024.0 as committed_target_gb
+        FROM sys.dm_os_sys_info
+"@
+        $reader = $command.ExecuteReader()
+
+        # Add Memory section header
+        $output.AppendLine("Memory Configuration") | Out-Null
+        $output.AppendLine("Server Name,Memory Model,Physical Memory (GB),Target Memory (GB),Recommendation") | Out-Null
+
+        if ($reader.Read()) {
+            $memoryLine = "{0},{1},{2:N2},{3:N2},{4}" -f `
+                $server,
+                $reader['sql_memory_model_desc'],
+                $reader['physical_memory_gb'],
+                $reader['committed_target_gb'],
+                $(if ($reader['sql_memory_model_desc'] -ne 'LOCK_PAGES') {
+                    "RECOMMENDATION: Enable Lock Pages in Memory to prevent SQL Server buffer pool from being paged out"
+                } else {
+                    "Lock Pages in Memory is properly configured"
+                })
+
+            $output.AppendLine($memoryLine) | Out-Null
+        }
+        $reader.Close()
+
+        # Add spacing between Memory and Database File sections
+        $output.AppendLine("") | Out-Null
+        $output.AppendLine("") | Out-Null
 
             # Add Database Files section header
             $output.AppendLine("Database File Information") | Out-Null
             $output.AppendLine("Server Name,Database Name,File Name,File Type,Size (MB),Growth Setting,Max Size,Recommendation") | Out-Null
-
+	   
             # Get Database File Information
             Write-Host "Gathering Database File Information..." -ForegroundColor Cyan
             $fileQuery = @"
