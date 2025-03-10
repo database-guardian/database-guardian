@@ -10,6 +10,10 @@ This tool provides automated analysis and recommendations for SQL Server configu
 - Network access to target SQL Servers
 - Required ports open (default: 1433)
 
+
+### Current Limitations
+- Works on Windows SQLServers
+
 ### Usage Steps
 
 1. Download Installation Files
