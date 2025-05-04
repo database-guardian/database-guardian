@@ -23,6 +23,7 @@ This tool provides automated analysis and recommendations for SQL Server configu
 2. Configure Server List
    - Create `servers.txt` in the same directory as the script
    - Add target server names (one per line)
+   - Create a folder with name Output
 
 Example servers.txt:
 ```
@@ -60,5 +61,7 @@ For Windows login
 ```
 .\SQLServer_Recommendations.ps1 -InputFile    "servers.txt" -WindowsAuth
 ```
+
+6. Output Folder will contain 2 files ServerRecommendations and DetailedAnalysis. Attached the Sample Outputs.
 
 Need help? Contact [email](kedaryarlapati@gmail.com)
