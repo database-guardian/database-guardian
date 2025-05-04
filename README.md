@@ -52,12 +52,13 @@ GRANT VIEW ANY DEFINITION TO [monitoring_user]
 For SQL login
 
 ```
-.\SQLServer_Recommendations.ps1 -InputFile "servers.txt" -SQLUsername "readonly_user" -SQLPassword "secure_password"
+$cred = Get-Credential
+.\SQLServer_Recommendations.ps1 -InputFile "servers.txt" -SQLCredential $cred
 ```
 For Windows login
 
 ```
-.\SQLServer_Recommendations.ps1 -InputFile "servers.txt" -WindowsAuth true
+.\SQLServer_Recommendations.ps1 -InputFile    "servers.txt" -WindowsAuth
 ```
 
 Need help? Contact [email](kedaryarlapati@gmail.com)
