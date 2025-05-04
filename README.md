@@ -16,9 +16,9 @@ This tool provides automated analysis and recommendations for SQL Server configu
 
 ### Usage Steps
 
-1. Download Installation Files
+1. Download Recommendation Powershell File
    - Obtain `SQLServer_Recommendations.ps1` from `/SQLServer` folder
-   - Place in desired location on your management server
+   - Place in desired location on your management machine (Windows machine)
 
 2. Configure Server List
    - Create `servers.txt` in the same directory as the script
