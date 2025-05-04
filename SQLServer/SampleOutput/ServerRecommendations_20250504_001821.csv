@@ -1,0 +1,25 @@
+﻿Server Name,Setting,Current Value,Recommended Value,Recommendation
+EC2AMAZ-5BJJHNE\SQL2022_DEV,Memory Settings,CONVENTIONAL,LOCK_PAGES,Enable Lock Pages in Memory
+EC2AMAZ-5BJJHNE\SQL2022_DEV,Cost Threshold,5,25,Increase Cost Threshold for Parallelism to at least 25
+EC2AMAZ-5BJJHNE\SQL2022_DEV,TempDB DataFile Configuration,2,2,Change growth to fixed size instead of percentage
+EC2AMAZ-5BJJHNE\SQL2022_DEV,Max Memory,2097151.99902344 GB,7.1996566772457 GB,Adjust max server memory
+EC2AMAZ-5BJJHNE\SQL2022_DEV,Backup Compression,Disabled,Enabled,Enable backup compression default
+EC2AMAZ-5BJJHNE\SQL2022_DEV,Instant File Initialization,Disabled,Enabled,Enable Instant File Initialization
+EC2AMAZ-5BJJHNE\SQL2022_DEV,Database File Growth,master - master,Fixed MB,Change from percentage (10%) to fixed size growth
+EC2AMAZ-5BJJHNE\SQL2022_DEV,Database File Growth,master - mastlog,Fixed MB,Change from percentage (10%) to fixed size growth
+EC2AMAZ-5BJJHNE\SQL2022_DEV,Database File Growth,tempdb - tempdev,Fixed MB,Change from percentage (10%) to fixed size growth
+EC2AMAZ-5BJJHNE\SQL2022_DEV,Database File Growth,msdb - MSDBData,Fixed MB,Change from percentage (10%) to fixed size growth
+EC2AMAZ-5BJJHNE\SQL2022_DEV,Database File Growth,msdb - MSDBLog,Fixed MB,Change from percentage (10%) to fixed size growth
+Servername\Instancename,MAXDOP,0,4,Change MAXDOP setting to 4
+Servername\Instancename,Cost Threshold,5,25,Increase Cost Threshold for Parallelism to at least 25
+Servername\Instancename,TempDB DataFile Configuration,4,4,Change growth to fixed size instead of percentage
+Servername\Instancename,Database File Growth,master - master,Fixed MB,Change from percentage (10%) to fixed size growth
+Servername\Instancename,Database File Growth,master - mastlog,Fixed MB,Change from percentage (10%) to fixed size growth
+Servername\Instancename,Database File Growth,tempdb - tempdev,Fixed MB,Change from percentage (10%) to fixed size growth
+Servername\Instancename,Database File Growth,msdb - MSDBData,Fixed MB,Change from percentage (10%) to fixed size growth
+Servername\Instancename,Database File Growth,msdb - MSDBLog,Fixed MB,Change from percentage (10%) to fixed size growth
+Servername\Instancename,Database File Growth,test234 - test234,Fixed MB,Change from percentage (10%) to fixed size growth
+Servername\Instancename,Database File Growth,test234 - test234_log,Fixed MB,Change from percentage (10%) to fixed size growth
+Servername\Instancename,Database File Growth,tpcc - tpcc,Fixed MB,Change from percentage (10%) to fixed size growth
+Servername\Instancename,Database File Growth,tpcc - tpcc_log,Fixed MB,Change from percentage (10%) to fixed size growth
+
