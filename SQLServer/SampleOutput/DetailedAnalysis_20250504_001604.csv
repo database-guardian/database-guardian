@@ -1,0 +1,52 @@
+﻿Server Configuration Details
+
+Server: EC2AMAZ-5BJJHNE\SQL2022_DEV
+CPU Count: 2
+NUMA Nodes: 1
+Memory Model: CONVENTIONAL
+Physical Memory: 8.00 GB
+Committed Memory: 3.46 GB
+
+Database Files:
+master,master,ROWS,4.000000 MB,10%
+master,mastlog,LOG,1.250000 MB,10%
+tempdb,tempdev,ROWS,8.000000 MB,10%
+tempdb,templog,LOG,8.000000 MB,64.000000 MB
+tempdb,temp2,ROWS,8.000000 MB,64.000000 MB
+model,modeldev,ROWS,8.000000 MB,64.000000 MB
+model,modellog,LOG,8.000000 MB,64.000000 MB
+msdb,MSDBData,ROWS,18.562500 MB,10%
+msdb,MSDBLog,LOG,3.375000 MB,10%
+test,test,ROWS,8.000000 MB,64.000000 MB
+test,test_log,LOG,8.000000 MB,64.000000 MB
+AdventureWorks2022,AdventureWorks2022,ROWS,200.000000 MB,64.000000 MB
+AdventureWorks2022,AdventureWorks2022_log,LOG,72.000000 MB,64.000000 MB
+distribution,distribution,ROWS,77.000000 MB,64.000000 MB
+distribution,distribution_log,LOG,137.000000 MB,64.000000 MB
+
+Server: database-1.cpefa5hy3txc.us-east-1.rds.amazonaws.com
+CPU Count: 4
+NUMA Nodes: 1
+Memory Model: LOCK_PAGES
+Physical Memory: 15.73 GB
+Committed Memory: 12.24 GB
+
+Database Files:
+master,master,ROWS,4.437500 MB,10%
+master,mastlog,LOG,2.000000 MB,10%
+tempdb,tempdev,ROWS,8.000000 MB,10%
+tempdb,templog,LOG,8.000000 MB,64.000000 MB
+tempdb,temp2,ROWS,8.000000 MB,64.000000 MB
+tempdb,temp3,ROWS,8.000000 MB,64.000000 MB
+tempdb,temp4,ROWS,8.000000 MB,64.000000 MB
+model,modeldev,ROWS,8.000000 MB,64.000000 MB
+model,modellog,LOG,8.000000 MB,64.000000 MB
+msdb,MSDBData,ROWS,51.375000 MB,10%
+msdb,MSDBLog,LOG,109.750000 MB,10%
+rdsadmin,rdsadmin,ROWS,72.000000 MB,64.000000 MB
+rdsadmin,rdsadmin_log,LOG,8.000000 MB,64.000000 MB
+test234,test234,ROWS,50000.000000 MB,10%
+test234,test234_log,LOG,10000.000000 MB,10%
+tpcc,tpcc,ROWS,1024.000000 MB,10%
+tpcc,tpcc_log,LOG,1444.437500 MB,10%
+
