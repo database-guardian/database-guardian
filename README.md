@@ -59,7 +59,7 @@ $cred = Get-Credential
 For Windows login
 
 ```
-.\SQLServer_Recommendations.ps1 -InputFile    "servers.txt" -WindowsAuth
+.\SQLServer_Recommendations.ps1 -InputFile "servers.txt" -WindowsAuth
 ```
 
 6. Output Folder will contain 2 files ServerRecommendations and DetailedAnalysis. Attached the Sample Outputs.
